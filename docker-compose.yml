@@ -1,0 +1,43 @@
+services:
+  db:
+    build: ./db
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-changeme_root}
+      - MYSQL_DATABASE=${DB_NAME:-sipsugy}
+      - MYSQL_USER=${DB_USER:-sipsugy}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-changeme}
+    volumes:
+      - db-data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-changeme_root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - FRONTEND_ORIGIN=http://localhost:8080
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=${DB_USER:-sipsugy}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - DB_NAME=${DB_NAME:-sipsugy}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  db-data:

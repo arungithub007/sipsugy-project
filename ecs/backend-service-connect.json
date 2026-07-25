@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "namespace": "sipsugy.local",
+  "services": [
+    {
+      "portName": "backend",
+      "discoveryName": "backend",
+      "clientAliases": [
+        { "port": 4000, "dnsName": "backend" }
+      ]
+    }
+  ]
+}

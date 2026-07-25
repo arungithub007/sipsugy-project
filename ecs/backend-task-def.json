@@ -1,0 +1,49 @@
+{
+  "family": "sipsugy-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::068765434624:role/sipsugyEcsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "IMAGE_PLACEHOLDER",
+      "essential": true,
+      "portMappings": [
+        {
+          "name": "backend",
+          "containerPort": 4000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "PORT", "value": "4000" },
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "FRONTEND_ORIGIN", "value": "*" },
+        { "name": "DB_HOST", "value": "DB_HOST_PLACEHOLDER" },
+        { "name": "DB_PORT", "value": "3306" },
+        { "name": "DB_USER", "value": "admin" },
+        { "name": "DB_NAME", "value": "sipsugy" }
+      ],
+      "secrets": [
+        { "name": "DB_PASSWORD", "valueFrom": "DB_SECRET_ARN_PLACEHOLDER:password::" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -qO- http://localhost:4000/api/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 10
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/sipsugy-backend",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "backend"
+        }
+      }
+    }
+  ]
+}
