@@ -8,7 +8,7 @@
   "containerDefinitions": [
     {
       "name": "frontend",
-      "image": "IMAGE_PLACEHOLDER",
+      "image": "068765434624.dkr.ecr.ap-south-1.amazonaws.com/sipsugy-frontend:latest",
       "essential": true,
       "portMappings": [
         {
@@ -20,7 +20,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/sipsugy-frontend",
+          "awslogs-group": "ecs-sipsugy-frontend",
           "awslogs-region": "ap-south-1",
           "awslogs-stream-prefix": "frontend"
         }

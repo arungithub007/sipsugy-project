@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>SipSugy &mdash; 3-Tier AWS DevOps Project</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-dark">
+            <span id="markdown-mermaid" aria-hidden="true" data-config="{&quot;darkModeTheme&quot;:&quot;vscode&quot;,&quot;lightModeTheme&quot;:&quot;vscode&quot;,&quot;maxTextSize&quot;:50000,&quot;clickDrag&quot;:&quot;alt&quot;,&quot;showControls&quot;:&quot;onHoverOrFocus&quot;,&quot;resizable&quot;:true,&quot;maxHeight&quot;:&quot;&quot;}"></span>
+				<h1 id="sipsugy--3-tier-aws-devops-project">SipSugy — 3-Tier AWS DevOps Project</h1>
+<p>Fresh sugarcane juice, ordered online. Deployed as a 3-tier app on AWS.</p>
+<h2 id="status">Status</h2>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Stack</th>
+<th>Local (Docker Compose)</th>
+<th>AWS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Frontend + proxy</td>
+<td>React (Vite) → Nginx</td>
+<td>✅</td>
+<td>✅ ECS Fargate + ALB</td>
+</tr>
+<tr>
+<td>Backend</td>
+<td>Node.js (Express)</td>
+<td>✅</td>
+<td>✅ ECS Fargate (Service Connect)</td>
+</tr>
+<tr>
+<td>Database</td>
+<td>MySQL 8</td>
+<td>✅ (container)</td>
+<td>✅ Amazon RDS for MySQL</td>
+</tr>
+<tr>
+<td>CI/CD</td>
+<td>Jenkins (local, Docker)</td>
+<td>—</td>
+<td>✅ builds/pushes/deploys all three</td>
+</tr>
+</tbody>
+</table>
+<p>AWS account: <code>068765434624</code>  ·  Region: <code>ap-south-1</code></p>
+<h2 id="run-everything-locally">Run everything locally</h2>
+<pre><code class="language-bash"><span class="hljs-built_in">cp</span> db/.env.example .<span class="hljs-built_in">env</span>
+docker compose up --build
+</code></pre>
+<ul>
+<li>Backend API directly: <a href="http://localhost:4000/api/health">http://localhost:4000/api/health</a></li>
+<li>MySQL: localhost:3306</li>
+</ul>
+<h2 id="run-in-aws">Run in AWS</h2>
+<p>See the deployment walkthrough (chat history / <code>senarios.md</code>-style runbook)
+for exact commands. Summary of what's provisioned:</p>
+<ul>
+<li><strong>ECS cluster</strong> <code>sipsugy-cluster</code> (Fargate, Service Connect namespace <code>sipsugy.local</code>)</li>
+<li><strong>Frontend service</strong> <code>sipsugy-frontend-svc</code> — public, behind ALB <code>sipsugy-alb</code></li>
+<li><strong>Backend service</strong> <code>sipsugy-backend-svc</code> — private, reachable only as
+<code>backend:4000</code> from other services in the namespace (matches
+<code>frontend/nginx.conf</code>'s <code>proxy_pass</code> unchanged)</li>
+<li><strong>Database</strong>: Amazon RDS for MySQL (<code>sipsugy-db</code>), private subnet, only
+reachable from the ECS tasks' security group. Master password is managed
+by RDS in Secrets Manager — never stored in plaintext anywhere in this
+repo or in Jenkins.</li>
+<li><strong>CI/CD</strong>: Jenkins running locally in Docker Desktop (<code>jenkins/Dockerfile</code>),
+pipeline defined in <code>Jenkinsfile</code> — tests both tiers, builds all images,
+pushes to ECR, and force-redeploys both ECS services on every run.</li>
+</ul>
+<h2 id="layout">Layout</h2>
+<pre><code>aws-devops-project/
+├── frontend/          React + Vite, Dockerfile, nginx.conf (reverse proxy)
+├── backend/           Node.js + Express API, Dockerfile
+├── db/                MySQL schema (init.sql), Dockerfile — used for local
+│                      dev; production data lives in RDS instead
+├── ecs/               ECS task definitions + Service Connect configs
+├── iam/               IAM trust policy + deploy/secrets policies
+├── jenkins/           Custom Jenkins image (Docker CLI + AWS CLI)
+├── docker-compose.yml runs all three together, locally
+└── Jenkinsfile        CI/CD pipeline (real AWS account/region wired in)
+</code></pre>
+<h2 id="possible-next-steps">Possible next steps</h2>
+<ul>
+<li>Route 53 + ACM for a real domain and HTTPS (currently HTTP-only on the ALB)</li>
+<li>Enable RDS Multi-AZ for high availability (currently single-AZ, for cost)</li>
+<li>Move ECS tasks into private subnets + a NAT gateway (currently public
+subnets with public IPs, for simplicity)</li>
+<li>CloudWatch alarms on ECS/RDS metrics</li>
+</ul>
+
+            
+            
+        </body>
+        </html>

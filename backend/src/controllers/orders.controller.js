@@ -75,3 +75,17 @@ export async function getOrder(req, res) {
   }
   return res.json(record)
 }
+
+export async function getOrders(req, res, next) {
+  try {
+    const pool = getPool()
+    if (!pool) {
+      return res.status(500).json({ error: 'Database connection not available' })
+    }
+
+    const [rows] = await pool.query('SELECT * FROM orders')
+    res.json(rows)
+  } catch (err) {
+    next(err)
+  }
+}

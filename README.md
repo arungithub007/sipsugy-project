@@ -19,7 +19,6 @@ AWS account: `068765434624`  ·  Region: `ap-south-1`
 cp db/.env.example .env
 docker compose up --build
 ```
-- Frontend (proxied through Nginx): http://localhost:8080
 - Backend API directly: http://localhost:4000/api/health
 - MySQL: localhost:3306
 

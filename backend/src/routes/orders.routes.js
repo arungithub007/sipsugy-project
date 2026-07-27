@@ -1,9 +1,9 @@
 import { Router } from 'express'
-import { createOrder, getOrder } from '../controllers/orders.controller.js'
+import { getOrders, createOrder, getOrder } from '../controllers/orders.controller.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
 
 const router = Router()
-
+router.get('/', getOrders)
 router.post('/', asyncHandler(createOrder))
 router.get('/:id', asyncHandler(getOrder))
 
