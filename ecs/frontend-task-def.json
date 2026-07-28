@@ -20,7 +20,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "ecs-sipsugy-frontend",
+          "awslogs-group": "ecs/sipsugy-frontend",
           "awslogs-region": "ap-south-1",
           "awslogs-stream-prefix": "frontend"
         }

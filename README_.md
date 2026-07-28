@@ -102,6 +102,8 @@ aws configure
 
 aws sts get-caller-identity   # confirm Account = 068765434624
 ```
+![Screenshot of my app](images/Screenshot%202026-07-28%20173441.png)
+
 
 **IAM: task execution role + Jenkins deploy user:**
 ```bash
@@ -110,7 +112,11 @@ aws iam create-role --role-name sipsugyEcsTaskExecutionRole \
 
 aws iam attach-role-policy --role-name sipsugyEcsTaskExecutionRole \
   --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+```
+![Screenshot of my app](images/sipsugyEcsTaskExecutionRole.png)
 
+
+```
 aws iam create-user --user-name jenkins-ecs-deployer
 
 aws iam put-user-policy --user-name jenkins-ecs-deployer \
@@ -120,6 +126,8 @@ aws iam put-user-policy --user-name jenkins-ecs-deployer \
 aws iam create-access-key --user-name jenkins-ecs-deployer
 # Save the AccessKeyId + SecretAccessKey shown — only shown once.
 ```
+![iam user](images/users%20jenkins-ecs-deployer.png)
+
 
 **ECS cluster with Service Connect enabled:**
 ```bash
@@ -127,6 +135,7 @@ aws ecs create-cluster --cluster-name sipsugy-cluster \
   --service-connect-defaults namespace=sipsugy.local \
   --region ap-south-1
 ```
+![](images/Service%20Connect%20enabled.png)
 
 **Networking — default VPC + security groups:**
 ```bash
@@ -142,7 +151,10 @@ ALB_SG=$(aws ec2 create-security-group --group-name sipsugy-alb-sg \
   --query "GroupId" --output text)
 aws ec2 authorize-security-group-ingress --group-id "$ALB_SG" \
   --protocol tcp --port 80 --cidr 0.0.0.0/0 --region ap-south-1
+```
+![](images/securitygroup%20sipsugy-alb-sg.png)
 
+```bash
 ECS_SG=$(aws ec2 create-security-group --group-name sipsugy-ecs-sg \
   --description "SipSugy ECS tasks" --vpc-id "$VPC_ID" --region ap-south-1 \
   --query "GroupId" --output text)
@@ -151,6 +163,7 @@ aws ec2 authorize-security-group-ingress --group-id "$ECS_SG" \
 aws ec2 authorize-security-group-ingress --group-id "$ECS_SG" \
   --protocol tcp --port 4000 --source-group "$ECS_SG" --region ap-south-1
 ```
+![](images/securitygroup%20sipsugy-ecs-sg.png)
 *(Using the default VPC's public subnets avoids needing a NAT gateway —
 Fargate tasks get a public IP to reach ECR. Private subnets + NAT is a
 hardening step for later.)*
@@ -176,6 +189,8 @@ Global), kind **Secret text**: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
 Pipeline script from SCM → Git → your repo URL → branch `main` → script
 path `Jenkinsfile`.
 
+![](images/pipeline-git-repo.png)
+
 ### Stage 1 — Frontend (ECR, ALB, ECS)
 
 ```bash
@@ -188,8 +203,14 @@ docker tag sipsugy-frontend:latest 068765434624.dkr.ecr.ap-south-1.amazonaws.com
 docker push 068765434624.dkr.ecr.ap-south-1.amazonaws.com/sipsugy-frontend:latest
 
 # Log group
-aws logs create-log-group --log-group-name /ecs/sipsugy-frontend --region ap-south-1
+aws logs create-log-group --log-group-name ecs/sipsugy-frontend --region ap-south-1
+#to check the log groups we created
+ aws logs describe-log-groups --region ap-south-1 \
+  --query "logGroups[*].logGroupName" --output table
+```
+![](images/push-to-frontend.png)
 
+```bash
 # ALB + target group + listener
 ALB_ARN=$(aws elbv2 create-load-balancer --name sipsugy-alb \
   --subnets $SUBNETS --security-groups "$ALB_SG" \
@@ -200,18 +221,33 @@ TG_ARN=$(aws elbv2 create-target-group --name sipsugy-frontend-tg \
   --protocol HTTP --port 80 --vpc-id "$VPC_ID" --target-type ip \
   --health-check-path / --region ap-south-1 \
   --query "TargetGroups[0].TargetGroupArn" --output text)
+#or
+TG_ARN=$(MSYS_NO_PATHCONV=1 aws elbv2 create-target-group --name sipsugy-frontend-tg \
+  --protocol HTTP --port 80 --vpc-id "$VPC_ID" --target-type ip \
+  --health-check-path "/" --region ap-south-1 \
+  --query "TargetGroups[0].TargetGroupArn" --output text)
 
 aws elbv2 create-listener --load-balancer-arn "$ALB_ARN" \
   --protocol HTTP --port 80 \
   --default-actions Type=forward,TargetGroupArn=$TG_ARN --region ap-south-1
+#or
+aws elbv2 create-listener \
+  --load-balancer-arn "$ALB_ARN" \
+  --protocol HTTP --port 80 \
+  --default-actions '[{"Type":"fixed-response","FixedResponseConfig":{"MessageBody":"ALB is alive","StatusCode":"200","ContentType":"text/plain"}}]' \
+  --region ap-south-1
+
+
 
 aws elbv2 describe-load-balancers --names sipsugy-alb --region ap-south-1 \
   --query "LoadBalancers[0].DNSName" --output text
 # ^ this is your public URL
 ```
+![](images/load_balancer_public_url.png)
+
 Edit `ecs/frontend-task-def.json`: replace `IMAGE_PLACEHOLDER` with
 `068765434624.dkr.ecr.ap-south-1.amazonaws.com/sipsugy-frontend:latest`
-(revert it afterward — Jenkins owns real tags from here on), then:
+(revert it afterward — Jenkins owns real tags from here on), also check `awslogs-group` replace it with `log group` we created. then:
 ```bash
 aws ecs register-task-definition --cli-input-json file://ecs/frontend-task-def.json --region ap-south-1
 
