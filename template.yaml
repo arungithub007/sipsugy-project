@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  SipsugyFrontendService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: sipsugy-cluster
+      ServiceName: sipsugy-frontend-svc
+      DesiredCount: 1
+      LaunchType: FARGATE
+      TaskDefinition: sipsugy-frontend
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - subnet-05152aa28084a8741   # replace with your subnet IDs
+            - subnet-04aff3ca76b41c620
+            - subnet-08bd9c93c04356171
+          SecurityGroups:
+            - sg-0f63d537615c04a6c       # replace with your ECS SG
+          AssignPublicIp: ENABLED
+      LoadBalancers:
+        - TargetGroupArn: arn:aws:elasticloadbalancing:ap-south-1:068765434624:targetgroup/sipsugy-frontend-tg/ec003d4965a7dc31
+          ContainerName: frontend
+          ContainerPort: 80
