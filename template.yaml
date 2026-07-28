@@ -20,4 +20,4 @@ Resources:
       LoadBalancers:
         - TargetGroupArn: arn:aws:elasticloadbalancing:ap-south-1:068765434624:targetgroup/sipsugy-frontend-tg/ec003d4965a7dc31
           ContainerName: frontend
-          ContainerPort: 80
+          ContainerPort: 3000
