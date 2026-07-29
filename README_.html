@@ -355,12 +355,12 @@ ALB_ARN=$(aws elbv2 create-load-balancer --name sipsugy-alb \
   --query <span class="hljs-string">&quot;LoadBalancers[0].LoadBalancerArn&quot;</span> --output text)
 
 TG_ARN=$(aws elbv2 create-target-group --name sipsugy-frontend-tg \
-  --protocol HTTP --port 80 --vpc-id <span class="hljs-string">&quot;<span class="hljs-variable">$VPC_ID</span>&quot;</span> --target-type ip \
+  --protocol HTTP --port 3000 --vpc-id <span class="hljs-string">&quot;<span class="hljs-variable">$VPC_ID</span>&quot;</span> --target-type ip \
   --health-check-path / --region ap-south-1 \
   --query <span class="hljs-string">&quot;TargetGroups[0].TargetGroupArn&quot;</span> --output text)
 <span class="hljs-comment">#or</span>
 TG_ARN=$(MSYS_NO_PATHCONV=1 aws elbv2 create-target-group --name sipsugy-frontend-tg \
-  --protocol HTTP --port 80 --vpc-id <span class="hljs-string">&quot;<span class="hljs-variable">$VPC_ID</span>&quot;</span> --target-type ip \
+  --protocol HTTP --port 3000 --vpc-id <span class="hljs-string">&quot;<span class="hljs-variable">$VPC_ID</span>&quot;</span> --target-type ip \
   --health-check-path <span class="hljs-string">&quot;/&quot;</span> --region ap-south-1 \
   --query <span class="hljs-string">&quot;TargetGroups[0].TargetGroupArn&quot;</span> --output text)
 

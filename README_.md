@@ -4,12 +4,12 @@ Fresh sugarcane juice, ordered online. Deployed as a 3-tier app on AWS.
 
 ## Status
 
-| Tier              | Stack                       | Local (Docker Compose) | AWS                              |
-|-------------------|------------------------------|-------------------------|-----------------------------------|
-| Frontend + proxy  | React (Vite) → Nginx         | ✅                       | ✅ ECS Fargate + ALB               |
-| Backend           | Node.js (Express)             | ✅                       | ✅ ECS Fargate (Service Connect)   |
-| Database          | MySQL 8                       | ✅ (container)           | ✅ Amazon RDS for MySQL            |
-| CI/CD             | Jenkins (local, Docker)       | —                        | ✅ builds/pushes/deploys all three |
+| Tier             | Stack                   | Local (Docker Compose) | AWS                               |
+| ---------------- | ----------------------- | ---------------------- | --------------------------------- |
+| Frontend + proxy | React (Vite) → Nginx    | ✅                      | ✅ ECS Fargate + ALB               |
+| Backend          | Node.js (Express)       | ✅                      | ✅ ECS Fargate (Service Connect)   |
+| Database         | MySQL 8                 | ✅ (container)          | ✅ Amazon RDS for MySQL            |
+| CI/CD            | Jenkins (local, Docker) | —                      | ✅ builds/pushes/deploys all three |
 
 AWS account: `068765434624`  ·  Region: `ap-south-1`
 
@@ -218,12 +218,12 @@ ALB_ARN=$(aws elbv2 create-load-balancer --name sipsugy-alb \
   --query "LoadBalancers[0].LoadBalancerArn" --output text)
 
 TG_ARN=$(aws elbv2 create-target-group --name sipsugy-frontend-tg \
-  --protocol HTTP --port 80 --vpc-id "$VPC_ID" --target-type ip \
+  --protocol HTTP --port 3000 --vpc-id "$VPC_ID" --target-type ip \
   --health-check-path / --region ap-south-1 \
   --query "TargetGroups[0].TargetGroupArn" --output text)
 #or
 TG_ARN=$(MSYS_NO_PATHCONV=1 aws elbv2 create-target-group --name sipsugy-frontend-tg \
-  --protocol HTTP --port 80 --vpc-id "$VPC_ID" --target-type ip \
+  --protocol HTTP --port 3000 --vpc-id "$VPC_ID" --target-type ip \
   --health-check-path "/" --region ap-south-1 \
   --query "TargetGroups[0].TargetGroupArn" --output text)
 
@@ -561,33 +561,33 @@ MSYS_NO_PATHCONV=1 docker run -d --name jenkins -p 8080:8080 -p 50000:50000 -v j
 
 Exactly which stage creates which AWS resource, in order:
 
-| Stage | Resource | Type | Created via |
-|---|---|---|---|
-| **0 — Foundation** | `sipsugyEcsTaskExecutionRole` | IAM role | `aws iam create-role` + attach `AmazonECSTaskExecutionRolePolicy` |
-| | `jenkins-ecs-deployer` | IAM user | `create-user` + `put-user-policy` + `create-access-key` |
-| | `sipsugy-cluster` | ECS cluster | `aws ecs create-cluster` |
-| | `sipsugy.local` | Cloud Map namespace | auto-created by `--service-connect-defaults` on the cluster |
-| | `sipsugy-alb-sg` | Security group | `create-security-group` (80 from anywhere) |
-| | `sipsugy-ecs-sg` | Security group | `create-security-group` (80 from ALB-sg, 4000 self-referencing) |
-| | `sipsugy-jenkins` + container | Local Docker image/container | `docker build` / `docker run` — not an AWS resource |
-| **1 — Frontend** | `sipsugy-frontend` | ECR repository | `aws ecr create-repository` |
-| | `/ecs/sipsugy-frontend` | CloudWatch log group | `aws logs create-log-group` |
-| | `sipsugy-alb` | Application Load Balancer | `aws elbv2 create-load-balancer` |
-| | `sipsugy-frontend-tg` | Target group | `aws elbv2 create-target-group` |
-| | listener :80 | ALB listener | `aws elbv2 create-listener` |
-| | `sipsugy-frontend` | ECS task definition | `aws ecs register-task-definition` |
-| | `sipsugy-frontend-svc` | ECS service | `aws ecs create-service` |
-| **2 — Backend** | `sipsugy-backend` | ECR repository | `aws ecr create-repository` |
-| | `/ecs/sipsugy-backend` | CloudWatch log group | `aws logs create-log-group` |
-| | `sipsugy-backend` | ECS task definition | `aws ecs register-task-definition` |
-| | `sipsugy-backend-svc` | ECS service (Service Connect alias `backend`) | `aws ecs create-service` |
-| | — | Frontend redeploy | `update-service --force-new-deployment` (no new resource) |
-| **3 — Database** | `sipsugy-db-subnet-group` | RDS subnet group | `aws rds create-db-subnet-group` |
-| | `sipsugy-db-sg` | Security group | `create-security-group` (3306 from ECS-sg) |
-| | `sipsugy-db` | RDS instance | `aws rds create-db-instance` |
-| | *(auto)* | Secrets Manager secret | created automatically by `--manage-master-user-password` |
-| | `SipSugyReadDbSecret` | IAM inline policy | `aws iam put-role-policy` on the task execution role |
-| | `sipsugy-backend` (new revision) | ECS task definition update | `register-task-definition` with `DB_HOST`/secret ARN filled in |
+| Stage              | Resource                         | Type                                          | Created via                                                       |
+| ------------------ | -------------------------------- | --------------------------------------------- | ----------------------------------------------------------------- |
+| **0 — Foundation** | `sipsugyEcsTaskExecutionRole`    | IAM role                                      | `aws iam create-role` + attach `AmazonECSTaskExecutionRolePolicy` |
+|                    | `jenkins-ecs-deployer`           | IAM user                                      | `create-user` + `put-user-policy` + `create-access-key`           |
+|                    | `sipsugy-cluster`                | ECS cluster                                   | `aws ecs create-cluster`                                          |
+|                    | `sipsugy.local`                  | Cloud Map namespace                           | auto-created by `--service-connect-defaults` on the cluster       |
+|                    | `sipsugy-alb-sg`                 | Security group                                | `create-security-group` (80 from anywhere)                        |
+|                    | `sipsugy-ecs-sg`                 | Security group                                | `create-security-group` (80 from ALB-sg, 4000 self-referencing)   |
+|                    | `sipsugy-jenkins` + container    | Local Docker image/container                  | `docker build` / `docker run` — not an AWS resource               |
+| **1 — Frontend**   | `sipsugy-frontend`               | ECR repository                                | `aws ecr create-repository`                                       |
+|                    | `/ecs/sipsugy-frontend`          | CloudWatch log group                          | `aws logs create-log-group`                                       |
+|                    | `sipsugy-alb`                    | Application Load Balancer                     | `aws elbv2 create-load-balancer`                                  |
+|                    | `sipsugy-frontend-tg`            | Target group                                  | `aws elbv2 create-target-group`                                   |
+|                    | listener :80                     | ALB listener                                  | `aws elbv2 create-listener`                                       |
+|                    | `sipsugy-frontend`               | ECS task definition                           | `aws ecs register-task-definition`                                |
+|                    | `sipsugy-frontend-svc`           | ECS service                                   | `aws ecs create-service`                                          |
+| **2 — Backend**    | `sipsugy-backend`                | ECR repository                                | `aws ecr create-repository`                                       |
+|                    | `/ecs/sipsugy-backend`           | CloudWatch log group                          | `aws logs create-log-group`                                       |
+|                    | `sipsugy-backend`                | ECS task definition                           | `aws ecs register-task-definition`                                |
+|                    | `sipsugy-backend-svc`            | ECS service (Service Connect alias `backend`) | `aws ecs create-service`                                          |
+|                    | —                                | Frontend redeploy                             | `update-service --force-new-deployment` (no new resource)         |
+| **3 — Database**   | `sipsugy-db-subnet-group`        | RDS subnet group                              | `aws rds create-db-subnet-group`                                  |
+|                    | `sipsugy-db-sg`                  | Security group                                | `create-security-group` (3306 from ECS-sg)                        |
+|                    | `sipsugy-db`                     | RDS instance                                  | `aws rds create-db-instance`                                      |
+|                    | *(auto)*                         | Secrets Manager secret                        | created automatically by `--manage-master-user-password`          |
+|                    | `SipSugyReadDbSecret`            | IAM inline policy                             | `aws iam put-role-policy` on the task execution role              |
+|                    | `sipsugy-backend` (new revision) | ECS task definition update                    | `register-task-definition` with `DB_HOST`/secret ARN filled in    |
 
 ---
 
