@@ -1,4 +1,4 @@
-# SipSugy — 3-Tier AWS DevOps Project
+ SipSugy — 3-Tier AWS DevOps Project
 
 Fresh sugarcane juice, ordered online. Deployed as a 3-tier app on AWS.
 
