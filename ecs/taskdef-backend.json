@@ -16,7 +16,7 @@
       "environment": [
         { "name": "PORT", "value": "4000" },
         { "name": "FRONTEND_ORIGIN", "value": "https://<your-domain-or-alb-dns>" },
-        { "name": "DB_HOST", "value": "<rds-endpoint>.rds.amazonaws.com" },
+        { "name": "DB_HOST", "value": "sipsugy-db.cr2i8o6uod9u.ap-south-1.rds.amazonaws.com" },
         { "name": "DB_PORT", "value": "3306" },
         { "name": "DB_NAME", "value": "sipsugy" }
       ],

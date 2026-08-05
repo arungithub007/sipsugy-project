@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>SipSugy &mdash; Complete AWS 3-Tier Deployment Guide &lpar;From EC2 Bastion &sol; Build Server&rpar;</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex/dist/katex.min.css">
+<link href="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.css" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-dark">
+            <span id="markdown-mermaid" aria-hidden="true" data-config="{&quot;darkModeTheme&quot;:&quot;vscode&quot;,&quot;lightModeTheme&quot;:&quot;vscode&quot;,&quot;maxTextSize&quot;:50000,&quot;clickDrag&quot;:&quot;alt&quot;,&quot;showControls&quot;:&quot;onHoverOrFocus&quot;,&quot;resizable&quot;:true,&quot;maxHeight&quot;:&quot;&quot;}"></span>
+				<h1 id="sipsugy--complete-aws-3-tier-deployment-guide-from-ec2-bastion--build-server">SipSugy — Complete AWS 3-Tier Deployment Guide (From EC2 Bastion / Build Server)</h1>
+<p>This guide provides step-by-step instructions to configure an <strong>AWS EC2 instance</strong> as your DevOps control center and build server. From this EC2 instance, you will manage your infrastructure, host your Jenkins CI/CD pipelines in Docker, build and push images to Amazon ECR, deploy your services to ECS Fargate with <strong>Service Connect</strong> and <strong>Application Auto Scaling</strong>, and provision an <strong>Amazon RDS for MySQL</strong> database.</p>
+<hr>
+<h2 id="architecture-overview">Architecture Overview</h2>
+<pre class="mermaid" style="all: unset;">graph TD
+    subgraph Public Subnets
+        ALB["Application Load Balancer (sipsugy-alb)"]
+    end
+
+    subgraph Private / Public ECS Tasks
+        Frontend["ECS Fargate: Frontend Tasks (Port 80)"]
+        Backend["ECS Fargate: Backend Tasks (Port 4000)"]
+    end
+
+    subgraph Database Tier
+        RDS[("Amazon RDS MySQL (sipsugy-db)")]
+    end
+
+    subgraph DevOps Control Host
+        EC2["EC2 Instance (t3.medium)"]
+        Docker["Docker Engine"]
+        Jenkins["Jenkins (sipsugy-jenkins container)"]
+        AWS_CLI["AWS CLI &amp; Git"]
+    end
+
+    %% Routing
+    Internet --&gt;|HTTP :80| ALB
+    ALB --&gt;|Target Group :80| Frontend
+    Frontend --&gt;|Service Connect: 'backend:4000'| Backend
+    Backend --&gt;|MySQL :3306| RDS
+
+    %% Deploy Flow
+    EC2 --&gt;|Hosts| Docker
+    Docker --&gt;|Runs| Jenkins
+    Jenkins --&gt;|Builds &amp; Pushes| ECR_Front["ECR: sipsugy-frontend"]
+    Jenkins --&gt;|Builds &amp; Pushes| ECR_Back["ECR: sipsugy-backend"]
+    Jenkins --&gt;|Deploys / Updates| Frontend
+    Jenkins --&gt;|Deploys / Updates| Backend</pre>
+<h3 id="resource-properties">Resource Properties</h3>
+<ul>
+<li><strong>AWS Region:</strong> <code>ap-south-1</code> (Mumbai)</li>
+<li><strong>AWS Account ID:</strong> <code>068765434624</code> <em>(Note: Replace this ID with your actual AWS Account ID if different)</em></li>
+<li><strong>ECS Cluster:</strong> <code>sipsugy-cluster</code> (Fargate, namespace: <code>sipsugy.local</code>)</li>
+<li><strong>Frontend Service:</strong> <code>sipsugy-frontend-svc</code> (Public, behind ALB <code>sipsugy-alb</code>)</li>
+<li><strong>Backend Service:</strong> <code>sipsugy-backend-svc</code> (Private, reached via Service Connect at <code>backend:4000</code>)</li>
+<li><strong>Database:</strong> Amazon RDS for MySQL (<code>sipsugy-db</code>), private subnet, port <code>3306</code></li>
+</ul>
+<hr>
+<h2 id="stage-1--spin-up-and-configure-the-ec2-deployment-server">Stage 1 — Spin Up and Configure the EC2 Deployment Server</h2>
+<p>We will launch an EC2 instance that will act as both your command console and your Jenkins build runner.</p>
+<h3 id="11-launch-the-ec2-instance">1.1 Launch the EC2 Instance</h3>
+<ol>
+<li>Open the <strong>AWS Console</strong> and navigate to the <strong>EC2 Dashboard</strong>.</li>
+<li>Click <strong>Launch instance</strong>.</li>
+<li>Configure the following:
+<ul>
+<li><strong>Name:</strong> <code>sipsugy-devops-server</code></li>
+<li><strong>Application and OS Image (AMI):</strong> Ubuntu Server 24.04 LTS (HVM), SSD Volume Type (64-bit x86).</li>
+<li><strong>Instance Type:</strong> <code>t3.medium</code> <em>(Recommended: 2 vCPUs, 4 GB RAM. Building Node.js/Vite apps and running Docker inside Jenkins will fail on a <code>t2.micro</code> due to Out-Of-Memory errors).</em></li>
+<li><strong>Key Pair:</strong> Create a new key pair or select an existing one (save the <code>.pem</code> file).</li>
+<li><strong>Network Settings:</strong>
+<ul>
+<li>Use the <strong>Default VPC</strong>.</li>
+<li><strong>Auto-assign public IP:</strong> Enable.</li>
+<li><strong>Create security group:</strong> Name it <code>sipsugy-devops-sg</code>.</li>
+<li><strong>Inbound Security Group Rules:</strong>
+<ul>
+<li><strong>SSH</strong> (Port 22) -&gt; Source: <code>My IP</code> (for secure administration).</li>
+<li><strong>Custom TCP</strong> (Port 8080) -&gt; Source: <code>Anywhere-IPv4</code> (to access the Jenkins UI).</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>Configure Storage:</strong> Change root volume size to <strong>30 GiB</strong> (GP3) to accommodate Docker images and build history.</li>
+</ul>
+</li>
+<li>Click <strong>Launch instance</strong>.</li>
+</ol>
+<h3 id="12-connect-to-your-ec2-instance-via-ssh">1.2 Connect to Your EC2 Instance via SSH</h3>
+<p>Using Git Bash or your local terminal, log in to the instance:</p>
+<pre><code class="language-bash"><span class="hljs-comment"># Set file permissions on key pair (Linux/macOS/Git Bash)</span>
+<span class="hljs-built_in">chmod</span> 400 your-key-pair.pem
+
+<span class="hljs-comment"># SSH into the Ubuntu instance</span>
+ssh -i your-key-pair.pem ubuntu@&lt;EC2-PUBLIC-IP&gt;
+</code></pre>
+<hr>
+<h2 id="stage-2--install-required-tools-on-the-ec2-server">Stage 2 — Install Required Tools on the EC2 Server</h2>
+<p>Run these commands inside your EC2 terminal to prepare the host.</p>
+<h3 id="21-update-apt-system-packages">2.1 Update APT System packages</h3>
+<pre><code class="language-bash">sudo apt-get update &amp;&amp; sudo apt-get upgrade -y
+</code></pre>
+<h3 id="22-install-docker-engine">2.2 Install Docker Engine</h3>
+<pre><code class="language-bash"><span class="hljs-comment"># Add Docker&#x27;s official GPG key:</span>
+sudo apt-get install -y ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo <span class="hljs-built_in">chmod</span> a+r /etc/apt/keyrings/docker.gpg
+
+<span class="hljs-comment"># Add the repository to Apt sources:</span>
+<span class="hljs-built_in">echo</span> \
+  <span class="hljs-string">&quot;deb [arch=<span class="hljs-subst">$(dpkg --print-architecture)</span> signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  <span class="hljs-subst">$(. /etc/os-release &amp;&amp; echo <span class="hljs-string">&quot;<span class="hljs-variable">$VERSION_CODENAME</span>&quot;</span>)</span> stable&quot;</span> | \
+  sudo <span class="hljs-built_in">tee</span> /etc/apt/sources.list.d/docker.list &gt; /dev/null
+
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+<span class="hljs-comment"># Enable and start Docker service</span>
+sudo systemctl <span class="hljs-built_in">enable</span> docker
+sudo systemctl start docker
+
+<span class="hljs-comment"># Add the &#x27;ubuntu&#x27; user to the docker group</span>
+sudo usermod -aG docker ubuntu
+<span class="hljs-comment"># Log out and log back in to apply group changes:</span>
+<span class="hljs-built_in">exit</span>
+</code></pre>
+<p><em>Reconnect to the EC2 via SSH after exiting to ensure docker command works without <code>sudo</code>:</em></p>
+<pre><code class="language-bash">ssh -i your-key-pair.pem ubuntu@&lt;EC2-PUBLIC-IP&gt;
+docker --version <span class="hljs-comment"># Verify it works without sudo</span>
+</code></pre>
+<h3 id="23-install-aws-cli-v2-and-jq">2.3 Install AWS CLI v2 and JQ</h3>
+<pre><code class="language-bash">sudo apt-get install -y unzip jq
+
+<span class="hljs-comment"># Download and install AWS CLI v2</span>
+curl <span class="hljs-string">&quot;https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip&quot;</span> -o <span class="hljs-string">&quot;awscliv2.zip&quot;</span>
+unzip awscliv2.zip
+sudo ./aws/install
+<span class="hljs-built_in">rm</span> -rf awscliv2.zip aws
+
+aws --version <span class="hljs-comment"># Verify installation</span>
+</code></pre>
+<h3 id="24-clone-the-codebase">2.4 Clone the Codebase</h3>
+<p>Clone the project repository directly on your EC2 instance.</p>
+<pre><code class="language-bash">git <span class="hljs-built_in">clone</span> https://github.com/&lt;your-username&gt;/sipsugy-3tier.git
+<span class="hljs-built_in">cd</span> sipsugy-3tier
+</code></pre>
+<hr>
+<h2 id="stage-3--aws-cli-configuration--iam-roles">Stage 3 — AWS CLI Configuration &amp; IAM Roles</h2>
+<p>Configure permissions so your EC2 instance and deployment scripts can interact with AWS resources.</p>
+<h3 id="31-create-the-iam-task-execution-role-allows-ecs-tasks-to-download-ecr-images-and-write-logs">3.1 Create the IAM Task Execution Role (Allows ECS tasks to download ECR images and write logs)</h3>
+<pre><code class="language-bash"><span class="hljs-comment"># From the project root where iam/ exists:</span>
+aws iam create-role --role-name sipsugyEcsTaskExecutionRole \
+  --assume-role-policy-document file://iam/ecs-task-trust-policy.json
+
+<span class="hljs-comment"># Attach the standard Amazon ECS Execution Role policy</span>
+aws iam attach-role-policy --role-name sipsugyEcsTaskExecutionRole \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+</code></pre>
+<h3 id="32-create-the-jenkins-deployer-iam-user">3.2 Create the Jenkins Deployer IAM User</h3>
+<p>This user will generate credentials that Jenkins uses to register ECS task definitions and redeploy services.</p>
+<pre><code class="language-bash"><span class="hljs-comment"># Create the user</span>
+aws iam create-user --user-name jenkins-ecs-deployer
+
+<span class="hljs-comment"># Put the custom policy for deployments</span>
+aws iam put-user-policy --user-name jenkins-ecs-deployer \
+  --policy-name SipSugyDeployPolicy \
+  --policy-document file://iam/jenkins-deploy-policy.json
+
+<span class="hljs-comment"># Create credentials (SAVE these credentials immediately!)</span>
+aws iam create-access-key --user-name jenkins-ecs-deployer
+</code></pre>
+<p><em>Record the <code>AccessKeyId</code> and <code>SecretAccessKey</code> generated. You will configure these inside Jenkins.</em></p>
+<h3 id="33-configure-aws-cli-on-the-ec2-host">3.3 Configure AWS CLI on the EC2 Host</h3>
+<p>Run the configuration command and input your administrative credentials (or the deployer credentials):</p>
+<pre><code class="language-bash">aws configure
+<span class="hljs-comment"># AWS Access Key ID [None]: &lt;your-access-key-id&gt;</span>
+<span class="hljs-comment"># AWS Secret Access Key [None]: &lt;your-secret-access-key&gt;</span>
+<span class="hljs-comment"># Default region name [None]: ap-south-1</span>
+<span class="hljs-comment"># Default output format [None]: json</span>
+
+<span class="hljs-comment"># Verify permissions</span>
+aws sts get-caller-identity
+</code></pre>
+<hr>
+<h2 id="stage-4--spin-up-jenkins-in-docker-on-ec2">Stage 4 — Spin up Jenkins in Docker on EC2</h2>
+<p>Now, launch Jenkins inside a Docker container. We bind-mount the host's <code>/var/run/docker.sock</code> to enable the Jenkins pipeline to run Docker builds outside the container (Docker-outside-of-Docker).</p>
+<h3 id="41-build-the-custom-jenkins-image">4.1 Build the Custom Jenkins Image</h3>
+<p>This image contains the Jenkins agent, Docker CLI, and AWS CLI.</p>
+<pre><code class="language-bash"><span class="hljs-comment"># Navigate to the project root and build the Jenkins image</span>
+docker build -t sipsugy-jenkins ./jenkins
+</code></pre>
+<h3 id="42-run-the-jenkins-container">4.2 Run the Jenkins Container</h3>
+<p>Before launching Jenkins, create a persistent volume and adjust permissions of the Docker socket on the host. This ensures that the non-root containerized Jenkins user (<code>jenkins</code> UID 1000) has permission to build images.</p>
+<pre><code class="language-bash"><span class="hljs-comment"># Allow read-write access to the docker socket for all users on the host</span>
+sudo <span class="hljs-built_in">chmod</span> 666 /var/run/docker.sock
+
+<span class="hljs-comment"># Create a volume for persistent Jenkins configurations</span>
+docker volume create jenkins_home
+
+<span class="hljs-comment"># Start the Jenkins container</span>
+docker run -d --name jenkins \
+  -p 8080:8080 -p 50000:50000 \
+  -v jenkins_home:/var/jenkins_home \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  sipsugy-jenkins
+</code></pre>
+<h3 id="43-configure-and-unlock-jenkins">4.3 Configure and Unlock Jenkins</h3>
+<ol>
+<li>Retrieve the administrator password from the container:<pre><code class="language-bash">docker <span class="hljs-built_in">exec</span> jenkins <span class="hljs-built_in">cat</span> /var/jenkins_home/secrets/initialAdminPassword
+</code></pre>
+</li>
+<li>Open your web browser and navigate to <code>http://&lt;EC2-PUBLIC-IP&gt;:8080</code>.</li>
+<li>Paste the administrator password to unlock Jenkins.</li>
+<li>Click <strong>Install suggested plugins</strong>.</li>
+<li>Once complete, navigate to <strong>Manage Jenkins</strong> -&gt; <strong>Plugins</strong> -&gt; <strong>Available plugins</strong>.</li>
+<li>Search for <strong>Docker Pipeline</strong> and install it. Allow Jenkins to restart.</li>
+<li>Create your Admin user.</li>
+</ol>
+<h3 id="44-set-up-aws-credentials-in-jenkins">4.4 Set Up AWS Credentials in Jenkins</h3>
+<ol>
+<li>From the Jenkins homepage, go to <strong>Manage Jenkins</strong> -&gt; <strong>Credentials</strong> -&gt; <strong>System</strong> -&gt; <strong>Global credentials (unrestricted)</strong>.</li>
+<li>Click <strong>Add Credentials</strong> (Create the following two credentials):
+<ul>
+<li><strong>Credential 1:</strong>
+<ul>
+<li><strong>Kind:</strong> Secret text</li>
+<li><strong>Scope:</strong> Global</li>
+<li><strong>ID:</strong> <code>AWS_ACCESS_KEY_ID</code></li>
+<li><strong>Secret:</strong> <em>(The <code>AccessKeyId</code> of the <code>jenkins-ecs-deployer</code> user created in Step 3.2)</em></li>
+</ul>
+</li>
+<li><strong>Credential 2:</strong>
+<ul>
+<li><strong>Kind:</strong> Secret text</li>
+<li><strong>Scope:</strong> Global</li>
+<li><strong>ID:</strong> <code>AWS_SECRET_ACCESS_KEY</code></li>
+<li><strong>Secret:</strong> <em>(The <code>SecretAccessKey</code> of the <code>jenkins-ecs-deployer</code> user created in Step 3.2)</em></li>
+</ul>
+</li>
+</ul>
+</li>
+<li>If your GitHub repository is private, add a third credential:
+<ul>
+<li><strong>Kind:</strong> Username with password</li>
+<li><strong>ID:</strong> <code>github-git-creds</code></li>
+<li><strong>Username:</strong> <code>&lt;your-github-username&gt;</code></li>
+<li><strong>Password:</strong> <em>(A GitHub Personal Access Token with <code>repo</code> scope)</em></li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="stage-5--networking--security-infrastructure-setup">Stage 5 — Networking &amp; Security Infrastructure Setup</h2>
+<p>Run these commands on the EC2 host to create VPC Security Groups, Load Balancers, and DNS namespaces.</p>
+<h3 id="51-determine-default-vpc-and-subnets">5.1 Determine Default VPC and Subnets</h3>
+<pre><code class="language-bash"><span class="hljs-comment"># Get the Default VPC ID</span>
+VPC_ID=$(aws ec2 describe-vpcs --filters <span class="hljs-string">&quot;Name=isDefault,Values=true&quot;</span> \
+  --query <span class="hljs-string">&quot;Vpcs[0].VpcId&quot;</span> --output text --region ap-south-1)
+
+<span class="hljs-comment"># Get the associated subnets</span>
+SUBNETS=$(aws ec2 describe-subnets --filters <span class="hljs-string">&quot;Name=vpc-id,Values=<span class="hljs-variable">$VPC_ID</span>&quot;</span> \
+  --query <span class="hljs-string">&quot;Subnets[].SubnetId&quot;</span> --output text --region ap-south-1)
+
+<span class="hljs-comment"># Convert subnet space separations to commas for ECS input format</span>
+SUBNET_LIST=$(<span class="hljs-built_in">echo</span> <span class="hljs-variable">$SUBNETS</span> | <span class="hljs-built_in">tr</span> <span class="hljs-string">&#x27; &#x27;</span> <span class="hljs-string">&#x27;,&#x27;</span>)
+
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;VPC ID: <span class="hljs-variable">$VPC_ID</span>&quot;</span>
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;Subnets: <span class="hljs-variable">$SUBNET_LIST</span>&quot;</span>
+</code></pre>
+<h3 id="52-create-security-groups">5.2 Create Security Groups</h3>
+<ol>
+<li><strong>ALB Security Group:</strong> Public access on HTTP port 80.<pre><code class="language-bash">ALB_SG=$(aws ec2 create-security-group --group-name sipsugy-alb-sg \
+  --description <span class="hljs-string">&quot;SipSugy ALB Security Group&quot;</span> --vpc-id <span class="hljs-string">&quot;<span class="hljs-variable">$VPC_ID</span>&quot;</span> --region ap-south-1 \
+  --query <span class="hljs-string">&quot;GroupId&quot;</span> --output text)
+
+aws ec2 authorize-security-group-ingress --group-id <span class="hljs-string">&quot;<span class="hljs-variable">$ALB_SG</span>&quot;</span> \
+  --protocol tcp --port 80 --cidr 0.0.0.0/0 --region ap-south-1
+</code></pre>
+</li>
+<li><strong>ECS Tasks Security Group:</strong> Accepts HTTP traffic on port 80 from the ALB, and port 4000 internally for Service Connect.<pre><code class="language-bash">ECS_SG=$(aws ec2 create-security-group --group-name sipsugy-ecs-sg \
+  --description <span class="hljs-string">&quot;SipSugy ECS tasks Security Group&quot;</span> --vpc-id <span class="hljs-string">&quot;<span class="hljs-variable">$VPC_ID</span>&quot;</span> --region ap-south-1 \
+  --query <span class="hljs-string">&quot;GroupId&quot;</span> --output text)
+
+<span class="hljs-comment"># Allow port 80 traffic from the ALB SG</span>
+aws ec2 authorize-security-group-ingress --group-id <span class="hljs-string">&quot;<span class="hljs-variable">$ECS_SG</span>&quot;</span> \
+  --protocol tcp --port 3000 --source-group <span class="hljs-string">&quot;<span class="hljs-variable">$ALB_SG</span>&quot;</span> --region ap-south-1
+
+<span class="hljs-comment"># Allow port 4000 traffic from other ECS tasks sharing this group (for Service Connect)</span>
+aws ec2 authorize-security-group-ingress --group-id <span class="hljs-string">&quot;<span class="hljs-variable">$ECS_SG</span>&quot;</span> \
+  --protocol tcp --port 4000 --source-group <span class="hljs-string">&quot;<span class="hljs-variable">$ECS_SG</span>&quot;</span> --region ap-south-1
+</code></pre>
+</li>
+</ol>
+<h3 id="53-create-application-load-balancer">5.3 Create Application Load Balancer</h3>
+<p>Create the internet-facing ALB and register the target group.</p>
+<pre><code class="language-bash"><span class="hljs-comment"># Create ALB</span>
+ALB_ARN=$(aws elbv2 create-load-balancer --name sipsugy-alb \
+  --subnets <span class="hljs-variable">$SUBNETS</span> --security-groups <span class="hljs-string">&quot;<span class="hljs-variable">$ALB_SG</span>&quot;</span> \
+  --scheme internet-facing --<span class="hljs-built_in">type</span> application --region ap-south-1 \
+  --query <span class="hljs-string">&quot;LoadBalancers[0].LoadBalancerArn&quot;</span> --output text)
+
+<span class="hljs-comment"># Create Target Group for the Frontend ECS tasks (routing to port 80)</span>
+TG_ARN=$(aws elbv2 create-target-group --name sipsugy-frontend-tg \
+  --protocol HTTP --port 3000 --vpc-id <span class="hljs-string">&quot;<span class="hljs-variable">$VPC_ID</span>&quot;</span> --target-type ip \
+  --health-check-path / --region ap-south-1 \
+  --query <span class="hljs-string">&quot;TargetGroups[0].TargetGroupArn&quot;</span> --output text)
+
+<span class="hljs-comment"># Create ALB Listener to forward traffic from ALB:80 to the Target Group</span>
+aws elbv2 create-listener --load-balancer-arn <span class="hljs-string">&quot;<span class="hljs-variable">$ALB_ARN</span>&quot;</span> \
+  --protocol HTTP --port 80 \
+  --default-actions Type=forward,TargetGroupArn=<span class="hljs-variable">$TG_ARN</span> --region ap-south-1
+
+<span class="hljs-comment"># Output the DNS name of the ALB</span>
+ALB_DNS=$(aws elbv2 describe-load-balancers --names sipsugy-alb --region ap-south-1 \
+  --query <span class="hljs-string">&quot;LoadBalancers[0].DNSName&quot;</span> --output text)
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;Your Public Application URL: http://<span class="hljs-variable">$ALB_DNS</span>&quot;</span>
+
+<span class="hljs-comment"># output:-- Your Public Application URL: http://sipsugy-alb-1720838635.ap-south-1.elb.amazonaws.com </span>
+</code></pre>
+<h3 id="54-create-ecs-cluster-and-cloud-map-service-namespace">5.4 Create ECS Cluster and Cloud Map Service Namespace</h3>
+<p>Create the cluster along with the Service Connect private DNS namespace.</p>
+<pre><code class="language-bash"><span class="hljs-comment"># Create the cluster and bind a private DNS namespace &#x27;sipsugy.local&#x27;</span>
+aws ecs create-cluster --cluster-name sipsugy-cluster \
+  --service-connect-defaults namespace=sipsugy.local \
+  --region ap-south-1
+</code></pre>
+<hr>
+<h2 id="stage-6--amazon-ecr-repositories-and-initial-image-bootstrap">Stage 6 — Amazon ECR Repositories and Initial Image Bootstrap</h2>
+<p>ECS cannot start services without existing images. We must create ECR repositories, build baseline images, and push them to ECR manually. After this bootstrap stage, Jenkins will automate future pushes.</p>
+<h3 id="61-create-repositories-and-authenticate-docker">6.1 Create Repositories and Authenticate Docker</h3>
+<pre><code class="language-bash"><span class="hljs-comment"># Create frontend repository</span>
+aws ecr create-repository --repository-name sipsugy-frontend --region ap-south-1
+
+<span class="hljs-comment"># Create backend repository</span>
+aws ecr create-repository --repository-name sipsugy-backend --region ap-south-1
+
+<span class="hljs-comment"># Log docker client into ECR registry</span>
+aws ecr get-login-password --region ap-south-1 | \
+  docker login --username AWS --password-stdin 068765434624.dkr.ecr.ap-south-1.amazonaws.com
+</code></pre>
+<h3 id="62-build-and-push-initial-bootstrap-frontend-image">6.2 Build and Push Initial Bootstrap Frontend Image</h3>
+<pre><code class="language-bash">docker build -t sipsugy-frontend ./frontend
+docker tag sipsugy-frontend:latest 068765434624.dkr.ecr.ap-south-1.amazonaws.com/sipsugy-frontend:latest
+docker push 068765434624.dkr.ecr.ap-south-1.amazonaws.com/sipsugy-frontend:latest
+
+<span class="hljs-comment"># Create logs group for frontend</span>
+aws logs create-log-group --log-group-name ecs/sipsugy-frontend --region ap-south-1
+</code></pre>
+<h3 id="63-build-and-push-initial-bootstrap-backend-image">6.3 Build and Push Initial Bootstrap Backend Image</h3>
+<pre><code class="language-bash">docker build -t sipsugy-backend ./backend
+docker tag sipsugy-backend:latest 068765434624.dkr.ecr.ap-south-1.amazonaws.com/sipsugy-backend:latest
+docker push 068765434624.dkr.ecr.ap-south-1.amazonaws.com/sipsugy-backend:latest
+
+<span class="hljs-comment"># Create logs group for backend</span>
+aws logs create-log-group --log-group-name /ecs/sipsugy-backend --region ap-south-1
+</code></pre>
+<hr>
+<h2 id="stage-7--create-the-ecs-fargate-services">Stage 7 — Create the ECS Fargate Services</h2>
+<p>Register the task definitions and spin up the running Fargate containers.</p>
+<h3 id="71-register-task-definitions">7.1 Register Task Definitions</h3>
+<p>We substitute placeholders in our JSON templates to register our boot images.</p>
+<pre><code class="language-bash"><span class="hljs-comment"># Update AWS account ID inside the executionRoleArn in our taskdef templates if needed.</span>
+<span class="hljs-comment"># Since files are preconfigured with &#x27;arn:aws:iam::068765434624:role/sipsugyEcsTaskExecutionRole&#x27;,</span>
+<span class="hljs-comment"># register the definitions directly:</span>
+
+aws ecs register-task-definition --cli-input-json file://ecs/frontend-task-def.json --region ap-south-1
+
+aws ecs register-task-definition --cli-input-json file://ecs/backend-task-def.json --region ap-south-1
+</code></pre>
+<h3 id="72-create-the-services">7.2 Create the Services</h3>
+<ol>
+<li>
+<p><strong>Frontend Service:</strong> Attached to the application load balancer.</p>
+<pre><code class="language-bash">
+aws ecs create-service --cluster sipsugy-cluster \
+  --service-name sipsugy-frontend-svc \
+  --task-definition sipsugy-frontend \
+  --desired-count 1 --launch-type FARGATE \
+  --network-configuration <span class="hljs-string">&quot;awsvpcConfiguration={subnets=[<span class="hljs-variable">$SUBNET_LIST</span>],securityGroups=[<span class="hljs-variable">$ECS_SG</span>],assignPublicIp=ENABLED}&quot;</span> \
+  --load-balancers <span class="hljs-string">&quot;targetGroupArn=<span class="hljs-variable">$TG_ARN</span>,containerName=frontend,containerPort=80&quot;</span> \
+  --service-connect-configuration <span class="hljs-string">&quot;enabled=true,namespace=sipsugy.local&quot;</span> \
+  --region ap-south-1
+</code></pre>
+</li>
+<li>
+<p><strong>Backend Service:</strong> Configured only with Service Connect. It maps discovery port <code>4000</code> to containerPort <code>4000</code> inside the <code>sipsugy.local</code> network, creating the endpoint <code>http://backend:4000</code> which the frontend's Nginx proxy accesses directly.</p>
+<pre><code class="language-bash">aws ecs create-service --cluster sipsugy-cluster \
+  --service-name sipsugy-backend-svc \
+  --task-definition sipsugy-backend \
+  --desired-count 1 --launch-type FARGATE \
+  --network-configuration <span class="hljs-string">&quot;awsvpcConfiguration={subnets=[<span class="hljs-variable">$SUBNET_LIST</span>],securityGroups=[<span class="hljs-variable">$ECS_SG</span>],assignPublicIp=ENABLED}&quot;</span> \
+  --service-connect-configuration file://ecs/backend-service-connect.json \
+  --region ap-south-1
+</code></pre>
+</li>
+<li>
+<p>Nudge the frontend service to pick up the DNS mappings of the backend:</p>
+<pre><code class="language-bash">aws ecs update-service --cluster sipsugy-cluster --service sipsugy-frontend-svc \
+  --force-new-deployment --region ap-south-1
+</code></pre>
+</li>
+<li>
+<p>Verify by accessing the ALB DNS name. You should be able to view the app UI.</p>
+</li>
+</ol>
+<hr>
+<h2 id="stage-8--provision-the-database-tier-amazon-rds-mysql">Stage 8 — Provision the Database Tier (Amazon RDS MySQL)</h2>
+<p>Set up a private, secure MySQL instance. The database credentials will be managed automatically by Secrets Manager.</p>
+<h3 id="81-create-db-subnet-group-and-db-security-group">8.1 Create DB Subnet Group and DB Security Group</h3>
+<pre><code class="language-bash"><span class="hljs-comment"># Create RDS subnet group</span>
+aws rds create-db-subnet-group --db-subnet-group-name sipsugy-db-subnet-group \
+  --db-subnet-group-description <span class="hljs-string">&quot;SipSugy RDS subnets&quot;</span> \
+  --subnet-ids <span class="hljs-variable">$SUBNETS</span> --region ap-south-1
+
+<span class="hljs-comment"># Create RDS Security Group</span>
+DB_SG=$(aws ec2 create-security-group --group-name sipsugy-db-sg \
+  --description <span class="hljs-string">&quot;SipSugy RDS Security Group&quot;</span> --vpc-id <span class="hljs-string">&quot;<span class="hljs-variable">$VPC_ID</span>&quot;</span> --region ap-south-1 \
+  --query <span class="hljs-string">&quot;GroupId&quot;</span> --output text)
+
+<span class="hljs-comment"># Allow port 3306 inbound only from ECS tasks sharing $ECS_SG</span>
+aws ec2 authorize-security-group-ingress --group-id <span class="hljs-string">&quot;<span class="hljs-variable">$DB_SG</span>&quot;</span> \
+  --protocol tcp --port 3306 --source-group <span class="hljs-string">&quot;<span class="hljs-variable">$ECS_SG</span>&quot;</span> --region ap-south-1
+</code></pre>
+<h3 id="82-create-the-database-instance">8.2 Create the Database Instance</h3>
+<p>Run this command to create the MySQL instance:</p>
+<pre><code class="language-bash">aws rds create-db-instance \
+  --db-instance-identifier sipsugy-db \
+  --db-instance-class db.t3.micro \
+  --engine mysql \
+  --allocated-storage 20 \
+  --master-username admin \
+  --manage-master-user-password \
+  --db-name sipsugy \
+  --vpc-security-group-ids <span class="hljs-string">&quot;<span class="hljs-variable">$DB_SG</span>&quot;</span> \
+  --db-subnet-group-name sipsugy-db-subnet-group \
+  --backup-retention-period 7 \
+  --no-publicly-accessible \
+  --region ap-south-1
+
+<span class="hljs-comment"># Wait for completion (takes ~7-10 minutes)</span>
+aws rds <span class="hljs-built_in">wait</span> db-instance-available --db-instance-identifier sipsugy-db --region ap-south-1
+
+<span class="hljs-comment"># output rds endpoint link:- sipsugy-db.cr2i8o6uod9u.ap-south-1.rds.amazonaws.com </span>
+
+</code></pre>
+<h3 id="83-fetch-connection-details">8.3 Fetch Connection Details</h3>
+<p>Retrieve the RDS Endpoint and Secrets Manager ARN containing the password:</p>
+<pre><code class="language-bash">DB_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier sipsugy-db \
+  --query <span class="hljs-string">&quot;DBInstances[0].Endpoint.Address&quot;</span> --output text --region ap-south-1)
+
+DB_SECRET_ARN=$(aws rds describe-db-instances --db-instance-identifier sipsugy-db \
+  --query <span class="hljs-string">&quot;DBInstances[0].MasterUserSecret.SecretArn&quot;</span> --output text --region ap-south-1)
+
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;RDS Endpoint: <span class="hljs-variable">$DB_ENDPOINT</span>&quot;</span>
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;Secret ARN: <span class="hljs-variable">$DB_SECRET_ARN</span>&quot;</span>
+
+<span class="hljs-comment">#output(keep secretly dont hard codd)</span>
+<span class="hljs-comment"># echo &quot;RDS Endpoint: $DB_ENDPOINT&quot;</span>
+<span class="hljs-comment"># echo &quot;Secret ARN: $DB_SECRET_ARN&quot;</span>
+<span class="hljs-comment"># RDS Endpoint: sipsugy-db.cr2i8o6uod9u.ap-south-1.rds.amazonaws.com</span>
+<span class="hljs-comment"># Secret ARN: arn:aws:secretsmanager:ap-south-1:068765434624:secret:rds!db-d13bf0b3-7764-48b8-8c68-f3ebb4a65b1b-b079ed</span>
+
+</code></pre>
+<h3 id="84-load-sql-schema-run-initsql">8.4 Load SQL Schema (Run init.sql)</h3>
+<p>To seed the schema, temporarily allow access from your EC2 instance, execute the connection, and lock access back down.</p>
+<pre><code class="language-bash"><span class="hljs-comment"># 1. Fetch the public IP of your EC2 control host</span>
+EC2_IP=$(curl -s https://checkip.amazonaws.com)
+
+<span class="hljs-comment"># 2. Allow EC2 IP inbound access to DB:3306</span>
+aws ec2 authorize-security-group-ingress --group-id <span class="hljs-string">&quot;<span class="hljs-variable">$DB_SG</span>&quot;</span> \
+  --protocol tcp --port 3306 --cidr <span class="hljs-string">&quot;<span class="hljs-variable">$EC2_IP</span>/32&quot;</span> --region ap-south-1
+
+<span class="hljs-comment"># 3. Temporarily enable DB public routing</span>
+aws rds modify-db-instance --db-instance-identifier sipsugy-db \
+  --publicly-accessible --apply-immediately --region ap-south-1
+aws rds <span class="hljs-built_in">wait</span> db-instance-available --db-instance-identifier sipsugy-db --region ap-south-1
+
+<span class="hljs-comment"># 4. Fetch the generated database master password from Secrets Manager</span>
+DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id <span class="hljs-string">&quot;<span class="hljs-variable">$DB_SECRET_ARN</span>&quot;</span> \
+  --query SecretString --output text --region ap-south-1 | jq -r .password)
+      <span class="hljs-comment">#   #or</span>
+      <span class="hljs-comment">#   $ DB_PASSWORD=$(aws secretsmanager get-secret-value \</span>
+      <span class="hljs-comment">#   --secret-id &quot;$DB_SECRET_ARN&quot; \</span>
+      <span class="hljs-comment">#   --query SecretString \</span>
+      <span class="hljs-comment">#   --output text \</span>
+      <span class="hljs-comment">#   --region ap-south-1 | jq -r .password)</span>
+
+      <span class="hljs-comment"># aruna@Arun_CG MINGW64 /d/Vamshi_Review/final_porduct/sipsugy-project (main)</span>
+      <span class="hljs-comment"># $ echo $DB_PASSWORD</span>
+      <span class="hljs-comment">#####passwrd tD&lt;y:h~c7a|NC$$Kz~rKNA]WJbPo</span>
+
+
+<span class="hljs-comment"># 5. Apply the SQL schema</span>
+<span class="hljs-built_in">cat</span> db/init.sql | docker run -i --<span class="hljs-built_in">rm</span> mysql:8.0 \
+  mysql -h <span class="hljs-string">&quot;<span class="hljs-variable">$DB_ENDPOINT</span>&quot;</span> -u admin -p<span class="hljs-string">&quot;<span class="hljs-variable">$DB_PASSWORD</span>&quot;</span> sipsugy
+
+<span class="hljs-comment"># 6. Revert security modifications to secure the database</span>
+aws rds modify-db-instance --db-instance-identifier sipsugy-db \
+  --no-publicly-accessible --apply-immediately --region ap-south-1
+aws ec2 revoke-security-group-ingress --group-id <span class="hljs-string">&quot;<span class="hljs-variable">$DB_SG</span>&quot;</span> \
+  --protocol tcp --port 3306 --cidr <span class="hljs-string">&quot;<span class="hljs-variable">$EC2_IP</span>/32&quot;</span> --region ap-south-1
+aws rds <span class="hljs-built_in">wait</span> db-instance-available --db-instance-identifier sipsugy-db --region ap-south-1
+</code></pre>
+<h3 id="85-authorize-ecs-task-execution-role-to-read-the-db-secret">8.5 Authorize ECS Task Execution Role to read the DB Secret</h3>
+<p>Add permissions so ECS can fetch the RDS password when booting backend tasks:</p>
+<pre><code class="language-bash"><span class="hljs-comment"># Substitute template values in policy configuration</span>
+sed -i <span class="hljs-string">&quot;s|DB_SECRET_ARN_PLACEHOLDER|<span class="hljs-variable">$DB_SECRET_ARN</span>|g&quot;</span> iam/ecs-secrets-policy.json
+
+<span class="hljs-comment"># Apply inline policy to ECS Task Execution Role</span>
+aws iam put-role-policy --role-name sipsugyEcsTaskExecutionRole \
+  --policy-name SipSugyReadDbSecret --policy-document file://iam/ecs-secrets-policy.json
+</code></pre>
+<h3 id="86-connect-the-backend-to-rds">8.6 Connect the Backend to RDS</h3>
+<ol>
+<li>Update <code>ecs/backend-task-def.json</code> on your host to point to the live RDS instance:<pre><code class="language-bash">sed -i <span class="hljs-string">&quot;s|DB_HOST_PLACEHOLDER|<span class="hljs-variable">$DB_ENDPOINT</span>|g; s|DB_SECRET_ARN_PLACEHOLDER|<span class="hljs-variable">$DB_SECRET_ARN</span>|g&quot;</span> \
+  ecs/backend-task-def.json
+</code></pre>
+</li>
+<li>Register the updated task definition revision and update the service:<pre><code class="language-bash">aws ecs register-task-definition --cli-input-json file://ecs/backend-task-def.json --region ap-south-1
+
+aws ecs update-service --cluster sipsugy-cluster --service sipsugy-backend-svc \
+  --task-definition sipsugy-backend --force-new-deployment --region ap-south-1
+</code></pre>
+</li>
+<li>Check logs to confirm successful database connection:<pre><code class="language-bash">aws logs <span class="hljs-built_in">tail</span> /ecs/sipsugy-backend --since 5m --region ap-south-1
+<span class="hljs-comment"># Confirm log contains: &quot;Connected to MySQL.&quot;</span>
+</code></pre>
+</li>
+</ol>
+<hr>
+<h2 id="stage-9--configure-ecs-service-auto-scaling">Stage 9 — Configure ECS Service Auto Scaling</h2>
+<p>We will configure ECS Auto Scaling to dynamically adjust the number of running tasks for both the frontend and backend services based on CPU and memory utilization.</p>
+<h3 id="91-register-scaling-targets">9.1 Register Scaling Targets</h3>
+<p>Define the upper and lower limits of scaling (Min: 1 task, Max: 5 tasks) for both services.</p>
+<pre><code class="language-bash"><span class="hljs-comment"># Register frontend service</span>
+aws application-autoscaling register-scalable-target \
+  --service-namespace ecs \
+  --resource-id service/sipsugy-cluster/sipsugy-frontend-svc \
+  --scalable-dimension ecs:service:DesiredCount \
+  --min-capacity 1 \
+  --max-capacity 5 \
+  --region ap-south-1
+
+<span class="hljs-comment"># Register backend service</span>
+aws application-autoscaling register-scalable-target \
+  --service-namespace ecs \
+  --resource-id service/sipsugy-cluster/sipsugy-backend-svc \
+  --scalable-dimension ecs:service:DesiredCount \
+  --min-capacity 1 \
+  --max-capacity 5 \
+  --region ap-south-1
+</code></pre>
+<h3 id="92-apply-scaling-policies-target-tracking">9.2 Apply Scaling Policies (Target Tracking)</h3>
+<p>We will deploy target tracking scaling policies. When the average CPU or Memory utilization exceeds 70%, ECS will add tasks.</p>
+<ol>
+<li>
+<p><strong>Apply CPU Scaling Policies:</strong></p>
+<pre><code class="language-bash"><span class="hljs-comment"># Apply CPU scaling to frontend</span>
+aws application-autoscaling put-scaling-policy \
+  --policy-name sipsugy-frontend-cpu-scaling \
+  --service-namespace ecs \
+  --resource-id service/sipsugy-cluster/sipsugy-frontend-svc \
+  --scalable-dimension ecs:service:DesiredCount \
+  --policy-type TargetTrackingScaling \
+  --target-tracking-scaling-policy-configuration file://ecs/cpu-scaling-policy.json \
+  --region ap-south-1
+
+<span class="hljs-comment"># Apply CPU scaling to backend</span>
+aws application-autoscaling put-scaling-policy \
+  --policy-name sipsugy-backend-cpu-scaling \
+  --service-namespace ecs \
+  --resource-id service/sipsugy-cluster/sipsugy-backend-svc \
+  --scalable-dimension ecs:service:DesiredCount \
+  --policy-type TargetTrackingScaling \
+  --target-tracking-scaling-policy-configuration file://ecs/cpu-scaling-policy.json \
+  --region ap-south-1
+</code></pre>
+</li>
+<li>
+<p><strong>Apply Memory Scaling Policies:</strong></p>
+<pre><code class="language-bash"><span class="hljs-comment"># Apply Memory scaling to frontend</span>
+aws application-autoscaling put-scaling-policy \
+  --policy-name sipsugy-frontend-memory-scaling \
+  --service-namespace ecs \
+  --resource-id service/sipsugy-cluster/sipsugy-frontend-svc \
+  --scalable-dimension ecs:service:DesiredCount \
+  --policy-type TargetTrackingScaling \
+  --target-tracking-scaling-policy-configuration file://ecs/memory-scaling-policy.json \
+  --region ap-south-1
+
+<span class="hljs-comment"># Apply Memory scaling to backend</span>
+aws application-autoscaling put-scaling-policy \
+  --policy-name sipsugy-backend-memory-scaling \
+  --service-namespace ecs \
+  --resource-id service/sipsugy-cluster/sipsugy-backend-svc \
+  --scalable-dimension ecs:service:DesiredCount \
+  --policy-type TargetTrackingScaling \
+  --target-tracking-scaling-policy-configuration file://ecs/memory-scaling-policy.json \
+  --region ap-south-1
+</code></pre>
+</li>
+<li>
+<p><strong>Verify Scaling Setup:</strong>
+Confirm the scaling policy targets are active by checking scalable targets:</p>
+<pre><code class="language-bash">aws application-autoscaling describe-scalable-targets \
+  --service-namespace ecs --region ap-south-1
+</code></pre>
+</li>
+</ol>
+<hr>
+<h2 id="stage-10--setup-jenkins-cicd-pipeline">Stage 10 — Setup Jenkins CI/CD Pipeline</h2>
+<p>With the infrastructure complete, we now connect Git to Jenkins.</p>
+<h3 id="101-commit-configuration-updates-to-git">10.1 Commit configuration updates to Git</h3>
+<p>On your EC2 host, push your updated task definitions and database policy configurations to GitHub so Jenkins can read them:</p>
+<pre><code class="language-bash">git add ecs/backend-task-def.json ecs/cpu-scaling-policy.json ecs/memory-scaling-policy.json iam/ecs-secrets-policy.json
+git commit -m <span class="hljs-string">&quot;Configure Auto Scaling and point backend task to RDS instance&quot;</span>
+git push origin main
+</code></pre>
+<h3 id="102-create-the-jenkins-pipeline-job">10.2 Create the Jenkins Pipeline Job</h3>
+<ol>
+<li>Log in to Jenkins (<code>http://&lt;EC2-PUBLIC-IP&gt;:8080</code>).</li>
+<li>Click <strong>New Item</strong> on the left menu.</li>
+<li>Enter Name: <code>sipsugy</code> -&gt; select <strong>Pipeline</strong> -&gt; click <strong>OK</strong>.</li>
+<li>Configure the pipeline page:
+<ul>
+<li>Scroll down to the <strong>Pipeline</strong> section.</li>
+<li><strong>Definition:</strong> select <strong>Pipeline script from SCM</strong>.</li>
+<li><strong>SCM:</strong> select <strong>Git</strong>.</li>
+<li><strong>Repository URL:</strong> <code>https://github.com/&lt;your-username&gt;/sipsugy-3tier.git</code>.</li>
+<li><strong>Credentials:</strong> Select the credential with your Git username and password/token (if repository is private), or leave empty (if repository is public).</li>
+<li><strong>Branch Specifier:</strong> <code>*/main</code></li>
+<li><strong>Script Path:</strong> <code>Jenkinsfile</code></li>
+</ul>
+</li>
+<li>Click <strong>Save</strong>.</li>
+</ol>
+<h3 id="103-run-and-validate-build">10.3 Run and Validate Build</h3>
+<ol>
+<li>Click <strong>Build Now</strong> on the left panel to trigger the pipeline manually.</li>
+<li>The pipeline will:
+<ul>
+<li>Checkout code.</li>
+<li>Run backend tests (inside a Node container).</li>
+<li>Check frontend build.</li>
+<li>Login to ECR.</li>
+<li>Build the new frontend image with build tag, tag as <code>latest</code>, push to ECR, update ECS task revision, and execute a deployment update.</li>
+<li>Build the new backend image with build tag, tag as <code>latest</code>, push to ECR, update ECS task revision, and execute a deployment update.</li>
+</ul>
+</li>
+<li>Open your ALB URL. Ensure the frontend load balancer responds. Create an order, reload the application, and verify the order persists.</li>
+</ol>
+<hr>
+<h2 id="stage-11--clean-up-and-tear-down">Stage 11 — Clean Up and Tear Down</h2>
+<p>To prevent continuous AWS billing charges, clean up your resources using these steps.</p>
+<pre><code class="language-bash"><span class="hljs-comment"># 1. Scale down and delete ECS services</span>
+aws ecs update-service --cluster sipsugy-cluster --service sipsugy-frontend-svc --desired-count 0 --region ap-south-1
+aws ecs update-service --cluster sipsugy-cluster --service sipsugy-backend-svc --desired-count 0 --region ap-south-1
+aws ecs delete-service --cluster sipsugy-cluster --service sipsugy-frontend-svc --region ap-south-1
+aws ecs delete-service --cluster sipsugy-cluster --service sipsugy-backend-svc --region ap-south-1
+
+<span class="hljs-comment"># 2. Delete ECS Cluster</span>
+aws ecs delete-cluster --cluster sipsugy-cluster --region ap-south-1
+
+<span class="hljs-comment"># 3. Delete RDS instance (skips database snapshot)</span>
+aws rds delete-db-instance --db-instance-identifier sipsugy-db --skip-final-snapshot --region ap-south-1
+
+<span class="hljs-comment"># 4. Remove RDS subnet and security group</span>
+aws rds delete-db-subnet-group --db-subnet-group-name sipsugy-db-subnet-group --region ap-south-1
+aws ec2 delete-security-group --group-name sipsugy-db-sg --region ap-south-1
+
+<span class="hljs-comment"># 5. Delete ALB, Target Group, and Security Group</span>
+ALB_ARN=$(aws elbv2 describe-load-balancers --names sipsugy-alb --query <span class="hljs-string">&quot;LoadBalancers[0].LoadBalancerArn&quot;</span> --output text --region ap-south-1)
+aws elbv2 delete-load-balancer --load-balancer-arn <span class="hljs-string">&quot;<span class="hljs-variable">$ALB_ARN</span>&quot;</span> --region ap-south-1
+aws elbv2 delete-target-group --target-group-arn <span class="hljs-string">&quot;<span class="hljs-variable">$TG_ARN</span>&quot;</span> --region ap-south-1
+aws ec2 delete-security-group --group-name sipsugy-alb-sg --region ap-south-1
+aws ec2 delete-security-group --group-name sipsugy-ecs-sg --region ap-south-1
+
+<span class="hljs-comment"># 6. Delete ECR Repositories</span>
+aws ecr delete-repository --repository-name sipsugy-frontend --force --region ap-south-1
+aws ecr delete-repository --repository-name sipsugy-backend --force --region ap-south-1
+</code></pre>
+<p><em>Finally, terminate the <code>sipsugy-devops-server</code> EC2 instance from your AWS console.</em></p>
+
+            <script async src="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.js"></script>
+            
+        </body>
+        </html>

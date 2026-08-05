@@ -296,7 +296,7 @@ echo "Subnets: $SUBNET_LIST"
 
    # Allow port 80 traffic from the ALB SG
    aws ec2 authorize-security-group-ingress --group-id "$ECS_SG" \
-     --protocol tcp --port 80 --source-group "$ALB_SG" --region ap-south-1
+     --protocol tcp --port 3000 --source-group "$ALB_SG" --region ap-south-1
 
    # Allow port 4000 traffic from other ECS tasks sharing this group (for Service Connect)
    aws ec2 authorize-security-group-ingress --group-id "$ECS_SG" \
@@ -314,7 +314,7 @@ ALB_ARN=$(aws elbv2 create-load-balancer --name sipsugy-alb \
 
 # Create Target Group for the Frontend ECS tasks (routing to port 80)
 TG_ARN=$(aws elbv2 create-target-group --name sipsugy-frontend-tg \
-  --protocol HTTP --port 80 --vpc-id "$VPC_ID" --target-type ip \
+  --protocol HTTP --port 3000 --vpc-id "$VPC_ID" --target-type ip \
   --health-check-path / --region ap-south-1 \
   --query "TargetGroups[0].TargetGroupArn" --output text)
 
@@ -327,6 +327,8 @@ aws elbv2 create-listener --load-balancer-arn "$ALB_ARN" \
 ALB_DNS=$(aws elbv2 describe-load-balancers --names sipsugy-alb --region ap-south-1 \
   --query "LoadBalancers[0].DNSName" --output text)
 echo "Your Public Application URL: http://$ALB_DNS"
+
+# output:-- Your Public Application URL: http://sipsugy-alb-1720838635.ap-south-1.elb.amazonaws.com 
 ```
 
 ### 5.4 Create ECS Cluster and Cloud Map Service Namespace
@@ -398,6 +400,7 @@ aws ecs register-task-definition --cli-input-json file://ecs/backend-task-def.js
 ### 7.2 Create the Services
 1. **Frontend Service:** Attached to the application load balancer.
    ```bash
+
    aws ecs create-service --cluster sipsugy-cluster \
      --service-name sipsugy-frontend-svc \
      --task-definition sipsugy-frontend \
@@ -467,6 +470,9 @@ aws rds create-db-instance \
 
 # Wait for completion (takes ~7-10 minutes)
 aws rds wait db-instance-available --db-instance-identifier sipsugy-db --region ap-south-1
+
+# output rds endpoint link:- sipsugy-db.cr2i8o6uod9u.ap-south-1.rds.amazonaws.com 
+
 ```
 
 ### 8.3 Fetch Connection Details
@@ -480,6 +486,13 @@ DB_SECRET_ARN=$(aws rds describe-db-instances --db-instance-identifier sipsugy-d
 
 echo "RDS Endpoint: $DB_ENDPOINT"
 echo "Secret ARN: $DB_SECRET_ARN"
+
+#output(keep secretly dont hard codd)
+# echo "RDS Endpoint: $DB_ENDPOINT"
+# echo "Secret ARN: $DB_SECRET_ARN"
+# RDS Endpoint: sipsugy-db.cr2i8o6uod9u.ap-south-1.rds.amazonaws.com
+# Secret ARN: arn:aws:secretsmanager:ap-south-1:068765434624:secret:rds!db-d13bf0b3-7764-48b8-8c68-f3ebb4a65b1b-b079ed
+
 ```
 
 ### 8.4 Load SQL Schema (Run init.sql)
@@ -500,6 +513,17 @@ aws rds wait db-instance-available --db-instance-identifier sipsugy-db --region 
 # 4. Fetch the generated database master password from Secrets Manager
 DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id "$DB_SECRET_ARN" \
   --query SecretString --output text --region ap-south-1 | jq -r .password)
+      #   #or
+      #   $ DB_PASSWORD=$(aws secretsmanager get-secret-value \
+      #   --secret-id "$DB_SECRET_ARN" \
+      #   --query SecretString \
+      #   --output text \
+      #   --region ap-south-1 | jq -r .password)
+
+      # aruna@Arun_CG MINGW64 /d/Vamshi_Review/final_porduct/sipsugy-project (main)
+      # $ echo $DB_PASSWORD
+      #####passwrd tD<y:h~c7a|NC$$Kz~rKNA]WJbPo
+
 
 # 5. Apply the SQL schema
 cat db/init.sql | docker run -i --rm mysql:8.0 \
