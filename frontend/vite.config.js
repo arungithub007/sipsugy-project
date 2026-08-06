@@ -9,7 +9,7 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
+        target: 'http://backend.sipsugy.local:4000',
         changeOrigin: true,
       },
     },

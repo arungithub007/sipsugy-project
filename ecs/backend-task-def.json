@@ -1,7 +1,9 @@
 {
   "family": "sipsugy-backend",
   "networkMode": "awsvpc",
-  "requiresCompatibilities": ["FARGATE"],
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
   "cpu": "256",
   "memory": "512",
   "executionRoleArn": "arn:aws:iam::068765434624:role/sipsugyEcsTaskExecutionRole",
@@ -13,26 +15,51 @@
       "portMappings": [
         {
           "containerPort": 4000,
-          "protocol": "tcp"
+          "protocol": "tcp",
+          "name": "backend"
         }
       ],
       "environment": [
-        { "name": "PORT", "value": "4000" },
-        { "name": "NODE_ENV", "value": "production" },
-        { "name": "FRONTEND_ORIGIN", "value": "*" },
-        { "name": "DB_HOST", "value": "sipsugy-db.cr2i8o6uod9u.ap-south-1.rds.amazonaws.com" },
-        { "name": "DB_PORT", "value": "3306" },
-        { "name": "DB_USER", "value": "admin" },
-        { "name": "DB_NAME", "value": "sipsugy" }
+        {
+          "name": "PORT",
+          "value": "4000"
+        },
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "FRONTEND_ORIGIN",
+          "value": "*"
+        },
+        {
+          "name": "DB_HOST",
+          "value": "sipsugy-db.cr2i8o6uod9u.ap-south-1.rds.amazonaws.com"
+        },
+        {
+          "name": "DB_PORT",
+          "value": "3306"
+        },
+        {
+          "name": "DB_USER",
+          "value": "admin"
+        },
+        {
+          "name": "DB_NAME",
+          "value": "sipsugy"
+        }
       ],
       "secrets": [
         {
           "name": "DB_PASSWORD",
-          "valueFrom": "/sipsugy/db/password"
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:068765434624:secret:rds!db-d13bf0b3-7764-48b8-8c68-f3ebb4a65b1b-b079ed"
         }
       ],
       "healthCheck": {
-        "command": ["CMD-SHELL", "wget -qO- http://localhost:4000/api/health || exit 1"],
+        "command": [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:4000/api/health || exit 1"
+        ],
         "interval": 30,
         "timeout": 5,
         "retries": 3,
@@ -41,7 +68,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/sipsugy-backend",
+          "awslogs-group": "ecs/sipsugy-backend",
           "awslogs-region": "ap-south-1",
           "awslogs-stream-prefix": "backend"
         }

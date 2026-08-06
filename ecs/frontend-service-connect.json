@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "namespace": "sipsugy.local",
+  "services": [
+    {
+      "portName": "frontend",
+      "clientAliases": [
+        {
+          "port": 3000,
+          "dnsName": "frontend"
+        }
+      ]
+    }
+  ]
+}
