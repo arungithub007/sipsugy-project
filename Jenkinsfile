@@ -68,8 +68,7 @@ pipeline {
           agent { docker { image 'node:20-alpine' } }
           steps {
             dir('frontend') {
-              sh 'npm install'
-              sh 'npm run build'
+              sh 'npm install && chmod +x node_modules/.bin/* && npm run build'
             }
           }
         }
