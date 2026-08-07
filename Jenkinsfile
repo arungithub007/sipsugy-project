@@ -67,8 +67,9 @@ pipeline {
         stage('Frontend build check') {
           agent { docker { image 'node:20-alpine' } }
           steps {
-            dir('frontend') {
-              sh 'npm install && chmod +x node_modules/.bin/* && npm run build'
+             dir('frontend') {
+              sh 'npm install'
+              sh 'node node_modules/vite/bin/vite.js build'
             }
           }
         }
