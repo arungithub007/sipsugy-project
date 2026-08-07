@@ -52,7 +52,7 @@
       "secrets": [
         {
           "name": "DB_PASSWORD",
-          "valueFrom": "arn:aws:secretsmanager:ap-south-1:068765434624:secret:rds!db-d13bf0b3-7764-48b8-8c68-f3ebb4a65b1b-b079ed"
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:068765434624:secret:rds!db-d13bf0b3-7764-48b8-8c68-f3ebb4a65b1b-b079ed:password::"
         }
       ],
       "healthCheck": {

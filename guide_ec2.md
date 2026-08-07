@@ -296,7 +296,7 @@ echo "Subnets: $SUBNET_LIST"
 
    # Allow port 80 traffic from the ALB SG
    aws ec2 authorize-security-group-ingress --group-id "$ECS_SG" \
-     --protocol tcp --port 3000 --source-group "$ALB_SG" --region ap-south-1
+     --protocol tcp --port 80 --source-group "$ALB_SG" --region ap-south-1
 
    # Allow port 4000 traffic from other ECS tasks sharing this group (for Service Connect)
    aws ec2 authorize-security-group-ingress --group-id "$ECS_SG" \
@@ -314,7 +314,7 @@ ALB_ARN=$(aws elbv2 create-load-balancer --name sipsugy-alb \
 
 # Create Target Group for the Frontend ECS tasks (routing to port 80)
 TG_ARN=$(aws elbv2 create-target-group --name sipsugy-frontend-tg \
-  --protocol HTTP --port 3000 --vpc-id "$VPC_ID" --target-type ip \
+  --protocol HTTP --port 80 --vpc-id "$VPC_ID" --target-type ip \
   --health-check-path / --region ap-south-1 \
   --query "TargetGroups[0].TargetGroupArn" --output text)
 

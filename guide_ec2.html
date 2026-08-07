@@ -415,7 +415,7 @@ aws ec2 authorize-security-group-ingress --group-id <span class="hljs-string">&q
 
 <span class="hljs-comment"># Allow port 80 traffic from the ALB SG</span>
 aws ec2 authorize-security-group-ingress --group-id <span class="hljs-string">&quot;<span class="hljs-variable">$ECS_SG</span>&quot;</span> \
-  --protocol tcp --port 3000 --source-group <span class="hljs-string">&quot;<span class="hljs-variable">$ALB_SG</span>&quot;</span> --region ap-south-1
+  --protocol tcp --port 80 --source-group <span class="hljs-string">&quot;<span class="hljs-variable">$ALB_SG</span>&quot;</span> --region ap-south-1
 
 <span class="hljs-comment"># Allow port 4000 traffic from other ECS tasks sharing this group (for Service Connect)</span>
 aws ec2 authorize-security-group-ingress --group-id <span class="hljs-string">&quot;<span class="hljs-variable">$ECS_SG</span>&quot;</span> \
@@ -433,7 +433,7 @@ ALB_ARN=$(aws elbv2 create-load-balancer --name sipsugy-alb \
 
 <span class="hljs-comment"># Create Target Group for the Frontend ECS tasks (routing to port 80)</span>
 TG_ARN=$(aws elbv2 create-target-group --name sipsugy-frontend-tg \
-  --protocol HTTP --port 3000 --vpc-id <span class="hljs-string">&quot;<span class="hljs-variable">$VPC_ID</span>&quot;</span> --target-type ip \
+  --protocol HTTP --port 80 --vpc-id <span class="hljs-string">&quot;<span class="hljs-variable">$VPC_ID</span>&quot;</span> --target-type ip \
   --health-check-path / --region ap-south-1 \
   --query <span class="hljs-string">&quot;TargetGroups[0].TargetGroupArn&quot;</span> --output text)
 

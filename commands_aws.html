@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Git bash -lookup what u already have</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex/dist/katex.min.css">
+<link href="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.css" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-dark">
+            <span id="markdown-mermaid" aria-hidden="true" data-config="{&quot;darkModeTheme&quot;:&quot;vscode&quot;,&quot;lightModeTheme&quot;:&quot;vscode&quot;,&quot;maxTextSize&quot;:50000,&quot;clickDrag&quot;:&quot;alt&quot;,&quot;showControls&quot;:&quot;onHoverOrFocus&quot;,&quot;resizable&quot;:true,&quot;maxHeight&quot;:&quot;&quot;}"></span>
+				<h1 id="git-bash--lookup-what-u-already-have">Git bash -lookup what u already have</h1>
+<pre><code class="language-bash"><span class="hljs-built_in">cd</span> /c/path/to/your/project
+
+ALB_ARN=$(aws elbv2 describe-load-balancers --names sipsugy-alb --region ap-south-1 \
+  --query <span class="hljs-string">&quot;LoadBalancers[0].LoadBalancerArn&quot;</span> --output text)
+
+LISTENER_ARN=$(aws elbv2 describe-listeners --load-balancer-arn <span class="hljs-string">&quot;<span class="hljs-variable">$ALB_ARN</span>&quot;</span> --region ap-south-1 \
+  --query <span class="hljs-string">&quot;Listeners[0].ListenerArn&quot;</span> --output text)
+
+VPC_ID=vpc-05e08900713bc7b0b
+ALB_SG=sg-01f8246baf62282ff
+</code></pre>
+<h1 id="capture-the-frontend-services-current-subnetssg-before-touching-it">capture the frontend service's current subnets/SG <em>before</em> touching it</h1>
+<pre><code class="language-bash">FRONTEND_SUBNETS=$(aws ecs describe-services --cluster sipsugy-cluster --services sipsugy-frontend-svc \
+  --region ap-south-1 --query <span class="hljs-string">&quot;services[0].networkConfiguration.awsvpcConfiguration.subnets&quot;</span> --output text | <span class="hljs-built_in">tr</span> <span class="hljs-string">&#x27;\t&#x27;</span> <span class="hljs-string">&#x27;,&#x27;</span>)
+FRONTEND_SG=$(aws ecs describe-services --cluster sipsugy-cluster --services sipsugy-frontend-svc \
+  --region ap-south-1 --query <span class="hljs-string">&quot;services[0].networkConfiguration.awsvpcConfiguration.securityGroups[0]&quot;</span> --output text)
+
+<span class="hljs-comment"># same for backend</span>
+BACKEND_SUBNETS=$(aws ecs describe-services --cluster sipsugy-cluster --services sipsugy-backend-svc \
+  --region ap-south-1 --query <span class="hljs-string">&quot;services[0].networkConfiguration.awsvpcConfiguration.subnets&quot;</span> --output text | <span class="hljs-built_in">tr</span> <span class="hljs-string">&#x27;\t&#x27;</span> <span class="hljs-string">&#x27;,&#x27;</span>)
+BACKEND_SG=$(aws ecs describe-services --cluster sipsugy-cluster --services sipsugy-backend-svc \
+  --region ap-south-1 --query <span class="hljs-string">&quot;services[0].networkConfiguration.awsvpcConfiguration.securityGroups[0]&quot;</span> --output text)
+
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;<span class="hljs-variable">$ALB_ARN</span> / <span class="hljs-variable">$LISTENER_ARN</span> / <span class="hljs-variable">$FRONTEND_SUBNETS</span> / <span class="hljs-variable">$FRONTEND_SG</span> / <span class="hljs-variable">$BACKEND_SUBNETS</span> / <span class="hljs-variable">$BACKEND_SG</span>&quot;</span>
+
+</code></pre>
+<hr>
+<h1 id="create-the-two-new-target-groups">Create the two new target groups</h1>
+<pre><code class="language-bash">FRONTEND_TG_ARN=$(aws elbv2 create-target-group --name sipsugy-frontend-tg-80 \
+  --protocol HTTP --port 80 --vpc-id <span class="hljs-string">&quot;<span class="hljs-variable">$VPC_ID</span>&quot;</span> --target-type ip \
+  --health-check-path / --region ap-south-1 \
+  --query <span class="hljs-string">&quot;TargetGroups[0].TargetGroupArn&quot;</span> --output text)
+
+BACKEND_TG_ARN=$(aws elbv2 create-target-group --name sipsugy-backend-tg-4000 \
+  --protocol HTTP --port 4000 --vpc-id <span class="hljs-string">&quot;<span class="hljs-variable">$VPC_ID</span>&quot;</span> --target-type ip \
+  --health-check-path /api/health --region ap-south-1 \
+  --query <span class="hljs-string">&quot;TargetGroups[0].TargetGroupArn&quot;</span> --output text)
+
+  <span class="hljs-comment">#(Target group ports are immutable once created — this is why you need new ones rather than editing the 8080 one.)</span>
+</code></pre>
+<h1 id="to-remove-target-group-remove-the-jenkins-rule--target-group-from-this-alb">to remove target group (Remove the Jenkins rule + target group from this ALB)</h1>
+<pre><code class="language-bash">JENKINS_RULE_ARN=$(aws elbv2 describe-rules --listener-arn <span class="hljs-string">&quot;<span class="hljs-variable">$LISTENER_ARN</span>&quot;</span> --region ap-south-1 \
+  --query <span class="hljs-string">&quot;Rules[?Conditions[0].Values[0]==&#x27;/jenkins*&#x27;].RuleArn&quot;</span> --output text)
+aws elbv2 delete-rule --rule-arn <span class="hljs-string">&quot;<span class="hljs-variable">$JENKINS_RULE_ARN</span>&quot;</span> --region ap-south-1
+
+JENKINS_TG_ARN=$(aws elbv2 describe-target-groups --names sipsugy-jenkins-tg-8081 --region ap-south-1 \
+  --query <span class="hljs-string">&quot;TargetGroups[0].TargetGroupArn&quot;</span> --output text)
+aws elbv2 delete-target-group --target-group-arn <span class="hljs-string">&quot;<span class="hljs-variable">$JENKINS_TG_ARN</span>&quot;</span> --region ap-south-1
+</code></pre>
+<h1 id="point-the-listener-at-the-new-target-groups">Point the listener at the new target groups</h1>
+<pre><code class="language-bash"><span class="hljs-comment"># default action -&gt; frontend</span>
+aws elbv2 modify-listener --listener-arn <span class="hljs-string">&quot;<span class="hljs-variable">$LISTENER_ARN</span>&quot;</span> \
+  --default-actions Type=forward,TargetGroupArn=<span class="hljs-variable">$FRONTEND_TG_ARN</span> --region ap-south-1
+
+<span class="hljs-comment"># /api/* -&gt; backend</span>
+aws elbv2 create-rule --listener-arn <span class="hljs-string">&quot;<span class="hljs-variable">$LISTENER_ARN</span>&quot;</span> --priority 10 \
+  --conditions Field=path-pattern,Values=<span class="hljs-string">&#x27;/api/*&#x27;</span> \
+  --actions Type=forward,TargetGroupArn=<span class="hljs-variable">$BACKEND_TG_ARN</span> --region ap-south-1
+</code></pre>
+<h1 id="open-the-new-ports-between-the-alb-and-your-tasks">Open the new ports between the ALB and your tasks</h1>
+<pre><code class="language-bash">aws ec2 authorize-security-group-ingress --group-id <span class="hljs-string">&quot;<span class="hljs-variable">$FRONTEND_SG</span>&quot;</span> \
+  --protocol tcp --port 80 --source-group <span class="hljs-string">&quot;<span class="hljs-variable">$ALB_SG</span>&quot;</span> --region ap-south-1
+
+aws ec2 authorize-security-group-ingress --group-id <span class="hljs-string">&quot;<span class="hljs-variable">$BACKEND_SG</span>&quot;</span> \
+  --protocol tcp --port 4000 --source-group <span class="hljs-string">&quot;<span class="hljs-variable">$ALB_SG</span>&quot;</span> --region ap-south-1
+</code></pre>
+<h1 id="register-the-fixed-task-def-then-recreate-both-services">Register the fixed task def, then recreate both services</h1>
+<p>ECS won't let you change a running service's target group with update-service — it's immutable after creation, so both services need a delete + recreate:</p>
+<pre><code class="language-bash">aws ecs register-task-definition --cli-input-json file://ecs/frontend-task-def.json --region ap-south-1
+
+<span class="hljs-comment"># --- frontend ---</span>
+aws ecs update-service --cluster sipsugy-cluster --service sipsugy-frontend-svc --desired-count 0 --region ap-south-1
+aws ecs delete-service --cluster sipsugy-cluster --service sipsugy-frontend-svc --region ap-south-1 --force
+
+aws ecs create-service --cluster sipsugy-cluster --service-name sipsugy-frontend-svc \
+  --task-definition sipsugy-frontend --desired-count 1 --launch-type FARGATE \
+  --network-configuration <span class="hljs-string">&quot;awsvpcConfiguration={subnets=[<span class="hljs-variable">$FRONTEND_SUBNETS</span>],securityGroups=[<span class="hljs-variable">$FRONTEND_SG</span>],assignPublicIp=ENABLED}&quot;</span> \
+  --load-balancers <span class="hljs-string">&quot;targetGroupArn=<span class="hljs-variable">$FRONTEND_TG_ARN</span>,containerName=frontend,containerPort=80&quot;</span> \
+  --region ap-south-1
+
+<span class="hljs-comment"># --- backend (gets ALB access for the first time, keeps Service Connect too) ---</span>
+aws ecs update-service --cluster sipsugy-cluster --service sipsugy-backend-svc --desired-count 0 --region ap-south-1
+aws ecs delete-service --cluster sipsugy-cluster --service sipsugy-backend-svc --region ap-south-1 --force
+
+aws ecs create-service --cluster sipsugy-cluster --service-name sipsugy-backend-svc \
+  --task-definition sipsugy-backend --desired-count 1 --launch-type FARGATE \
+  --network-configuration <span class="hljs-string">&quot;awsvpcConfiguration={subnets=[<span class="hljs-variable">$BACKEND_SUBNETS</span>],securityGroups=[<span class="hljs-variable">$BACKEND_SG</span>],assignPublicIp=ENABLED}&quot;</span> \
+  --load-balancers <span class="hljs-string">&quot;targetGroupArn=<span class="hljs-variable">$BACKEND_TG_ARN</span>,containerName=backend,containerPort=4000&quot;</span> \
+  --service-connect-configuration file://ecs/backend-service-connect.json \
+  --region ap-south-1
+</code></pre>
+<h1 id="verify">verify</h1>
+<pre><code class="language-bash">aws ecs describe-services --cluster sipsugy-cluster --services sipsugy-frontend-svc sipsugy-backend-svc \
+  --region ap-south-1 --query <span class="hljs-string">&quot;services[].{name:serviceName,running:runningCount}&quot;</span>
+</code></pre>
+<h1 id="push-the-real-image-directly">push the real image directly</h1>
+<pre><code class="language-bash"><span class="hljs-built_in">cd</span> /d/Vamshi_Review/final_porduct/sipsugy-project
+
+aws ecr get-login-password --region ap-south-1 | \
+  docker login --username AWS --password-stdin 068765434624.dkr.ecr.ap-south-1.amazonaws.com
+
+docker build -t sipsugy-frontend ./frontend
+docker tag sipsugy-frontend:latest 068765434624.dkr.ecr.ap-south-1.amazonaws.com/sipsugy-frontend:latest
+docker push 068765434624.dkr.ecr.ap-south-1.amazonaws.com/sipsugy-frontend:latest
+
+aws ecs update-service --cluster sipsugy-cluster --service sipsugy-frontend-svc \
+  --force-new-deployment --region ap-south-1
+</code></pre>
+
+            <script async src="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.js"></script>
+            
+        </body>
+        </html>
